@@ -17,11 +17,11 @@ export function extractFromPage(fields) {
     return el.getAttribute(attribute);
   };
 
-  const today = () => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
+  // Horário local, em formato que o Google Sheets reconhece como data/data e hora.
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const timeOfDay = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const values = {};
   const missing = [];
@@ -39,7 +39,10 @@ export function extractFromPage(fields) {
         value = field.value ?? '';
         break;
       case 'date':
-        value = today();
+        value = today;
+        break;
+      case 'datetime':
+        value = `${today} ${timeOfDay}`;
         break;
       case 'selector': {
         // Um seletor por linha: o primeiro que retornar texto é usado.

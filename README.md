@@ -83,7 +83,8 @@ https://dphpkiodclkeghjdhfaehfpekooibole.chromiumapp.org/
    - **Seletor CSS** — um seletor por linha; o primeiro que retornar texto é usado. O campo *Atributo* lê um atributo em vez do
      texto (ex.: `href`, `content` para `meta[property="og:title"]`).
    - **URL da página** — origem + caminho, sem parâmetros (bom identificador único).
-   - **Título da página**, **Data de hoje** (`AAAA-MM-DD`) ou **Valor fixo / manual** (valor padrão, editável na prévia).
+   - **Título da página**, **Data de hoje** (`AAAA-MM-DD`), **Data e hora** (`AAAA-MM-DD HH:MM`, horário local da
+     extração) ou **Valor fixo / manual** (valor padrão, editável na prévia).
 4. Escolha a coluna de **identificador único** (ou nenhuma) e clique em **Salvar**.
 
 ### Capturar seletores da página (sem abrir o DevTools)

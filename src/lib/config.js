@@ -8,6 +8,7 @@ export const SOURCES = {
   title: 'Título da página',
   constant: 'Valor fixo / manual',
   date: 'Data de hoje',
+  datetime: 'Data e hora',
 };
 
 /**
@@ -40,7 +41,7 @@ export const LINKEDIN_PRESET = {
     { column: 'Level', source: 'selector', selector: 'main .text-body-medium.break-words' },
     { column: 'Linkedin profile', source: 'url' },
     { column: 'Status', source: 'constant', value: '' },
-    { column: 'Date', source: 'date' },
+    { column: 'Date', source: 'datetime' },
   ],
 };
 
