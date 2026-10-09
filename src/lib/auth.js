@@ -35,6 +35,9 @@ async function launchFlow(clientId, interactive) {
   url.searchParams.set('redirect_uri', getRedirectUri());
   url.searchParams.set('scope', SHEETS_SCOPE);
   url.searchParams.set('state', state);
+  // Com várias contas Google no navegador, o usuário escolhe explicitamente
+  // qual usar (precisa ser uma conta com acesso de edição à planilha).
+  if (interactive) url.searchParams.set('prompt', 'select_account');
 
   const redirect = await chrome.identity.launchWebAuthFlow({ url: url.href, interactive });
   const params = new URLSearchParams(new URL(redirect).hash.slice(1));

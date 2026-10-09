@@ -28,16 +28,38 @@ async function readErrorDetail(response) {
   }
 }
 
+export function isScopeError(detail) {
+  return /insufficient authentication scopes|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(detail);
+}
+
+// O Google responde 403 por motivos bem diferentes; a mensagem de erro
+// distingue cada um para que o usuário saiba o que corrigir.
+function classifyForbidden(detail) {
+  const status = 403;
+  const google = detail ? ` (Google: ${detail})` : '';
+  if (/has not been used in project|is disabled|SERVICE_DISABLED/i.test(detail)) {
+    return new SheetsError(
+      `A Google Sheets API não está ativada no projeto do Google Cloud do seu Client ID. Ative-a em "APIs e serviços → Biblioteca", aguarde alguns minutos e tente de novo.${google}`,
+      { kind: 'config', status, detail },
+    );
+  }
+  if (isScopeError(detail)) {
+    return new SheetsError(
+      `A permissão de acesso às planilhas não foi concedida no login do Google. Tente de novo e marque a permissão na tela de consentimento.${google}`,
+      { kind: 'auth', status, detail },
+    );
+  }
+  return new SheetsError(
+    `A conta Google escolhida no login não tem acesso de edição a esta planilha. Use "Sair da conta Google" nas configurações e entre com a conta dona da planilha (ou compartilhe a planilha como Editor com a conta usada).${google}`,
+    { kind: 'permission', status, detail },
+  );
+}
+
 function classify(status, detail) {
   if (status === 401) {
     return new SheetsError('Autenticação expirada ou recusada. Faça login novamente.', { kind: 'auth', status, detail });
   }
-  if (status === 403) {
-    return new SheetsError(
-      'Sem permissão para editar esta planilha. Verifique se a conta autorizada tem acesso de edição.',
-      { kind: 'permission', status, detail },
-    );
-  }
+  if (status === 403) return classifyForbidden(detail);
   if (status === 404) {
     return new SheetsError('Planilha não encontrada. Confira o ID configurado.', { kind: 'not_found', status, detail });
   }
@@ -47,6 +69,12 @@ function classify(status, detail) {
       status,
       detail,
     });
+  }
+  if (status === 400 && /not supported for this document/i.test(detail)) {
+    return new SheetsError(
+      'O arquivo é um Excel (.xlsx) guardado no Drive, não uma planilha Google. Abra-o e use "Arquivo → Salvar como Planilhas Google", depois configure o ID da nova planilha.',
+      { kind: 'config', status, detail },
+    );
   }
   if (status === 429) {
     return new SheetsError('Limite de requisições da API atingido. Tente novamente em instantes.', {
@@ -110,6 +138,8 @@ export function createSheetsClient({ auth, fetchImpl = (...args) => fetch(...arg
         token = await auth.getToken({ interactive: true });
         continue;
       }
+      // Token sem o escopo: descarta para que a próxima tentativa peça consentimento de novo.
+      if (response.status === 403 && isScopeError(detail)) await auth.invalidateToken(token);
       const retriable = response.status === 429 || (idempotent && response.status >= 500);
       if (retriable && attempt < MAX_RETRIES) {
         await wait(1000 * 2 ** attempt);

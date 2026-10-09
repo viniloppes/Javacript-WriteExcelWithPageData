@@ -92,3 +92,25 @@ test('erros da API são classificados', async () => {
     await assert.rejects(sheets.getHeader(ID, 'Nope'), { kind });
   }
 });
+
+test('403 distingue API desativada, escopo ausente e falta de acesso', async () => {
+  const disabled = 'Google Sheets API has not been used in project 123 before or it is disabled.';
+  let { sheets } = client([json(403, { error: { message: disabled } })]);
+  await assert.rejects(sheets.getHeader(ID, 'CRM'), (err) => err.kind === 'config' && /não está ativada/.test(err.message));
+
+  const auth = fakeAuth();
+  ({ sheets } = client([json(403, { error: { message: 'Request had insufficient authentication scopes.' } })], auth));
+  await assert.rejects(sheets.getHeader(ID, 'CRM'), { kind: 'auth' });
+  assert.equal(auth.invalidated, 1);
+
+  ({ sheets } = client([json(403, { error: { message: 'The caller does not have permission' } })]));
+  await assert.rejects(
+    sheets.getHeader(ID, 'CRM'),
+    (err) => err.kind === 'permission' && /Sair da conta Google/.test(err.message) && /caller does not have permission/.test(err.message),
+  );
+});
+
+test('arquivo .xlsx no Drive gera orientação para converter', async () => {
+  const { sheets } = client([json(400, { error: { message: 'This operation is not supported for this document' } })]);
+  await assert.rejects(sheets.getHeader(ID, 'CRM'), (err) => err.kind === 'config' && /Salvar como Planilhas Google/.test(err.message));
+});

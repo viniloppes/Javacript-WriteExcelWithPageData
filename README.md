@@ -84,6 +84,15 @@ direito → *Inspecionar* no elemento desejado).
 - Permissões da extensão: `activeTab` + `scripting` (ler somente a aba em que você clicou no ícone), `storage`, `identity` e
   acesso de rede apenas a `sheets.googleapis.com` e `oauth2.googleapis.com`.
 
+## Solução de problemas
+
+| Mensagem | Causa e correção |
+| --- | --- |
+| *A Google Sheets API não está ativada…* | No projeto do Google Cloud que contém o Client ID: **APIs e serviços → Biblioteca → Google Sheets API → Ativar**. Pode levar alguns minutos para valer. |
+| *A conta Google escolhida no login não tem acesso de edição…* | O login foi feito com outra conta. Em Configurações, clique em **Sair da conta Google** e tente de novo escolhendo a conta dona da planilha, ou compartilhe a planilha como **Editor** com a conta usada. Em modo de teste, a conta também precisa estar em *Usuários de teste* na tela de consentimento OAuth. |
+| *A permissão de acesso às planilhas não foi concedida…* | Na tela de consentimento do Google, a caixa de permissão de planilhas ficou desmarcada. Tente de novo e marque-a. |
+| *O arquivo é um Excel (.xlsx)…* | A API não edita .xlsx guardados no Drive. Use **Arquivo → Salvar como Planilhas Google** e configure o ID da nova planilha. |
+
 ## Critérios de aceitação — roteiro de verificação
 
 1. Abra manualmente um perfil (ex.: `https://www.linkedin.com/in/...`) no Chrome.
