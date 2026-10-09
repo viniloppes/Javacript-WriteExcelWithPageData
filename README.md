@@ -67,6 +67,20 @@ qualquer site podem ser configurados.
    - **Título da página**, **Data de hoje** (`AAAA-MM-DD`) ou **Valor fixo / manual** (valor padrão, editável na prévia).
 4. Escolha a coluna de **identificador único** (ou nenhuma) e clique em **Salvar**.
 
+### Capturar seletores da página (sem abrir o DevTools)
+
+1. Abra uma página de exemplo (ex.: um perfil do LinkedIn), clique no ícone da extensão e em **Capturar seletores**. A extensão
+   lista todos os textos visíveis da página e gera um seletor CSS para cada um.
+2. Em **Configurações**, clique no botão **🔍** ao lado do valor de um campo. Uma janela mostra a tabela capturada (seção, texto
+   encontrado, seletor e quantos elementos ele encontra); filtre pelo texto que você quer (ex.: `Red Marketing`).
+3. **Usar** substitui o seletor do campo; **+ Alternativa** adiciona o seletor como linha extra (usada se as anteriores não
+   acharem nada). Clique em **Salvar**.
+
+Os seletores gerados ignoram classes geradas automaticamente (como `fmbkzy`) e se apoiam em âncoras estáveis: a parte fixa de
+`id`/`componentkey` (ex.: `[id$="Topcard"] h2`), `aria-label`, o padrão do link (`a[href*="/company/"]`) e tags como `main`.
+Cada seletor é validado na página capturada: o primeiro elemento que ele encontra é exatamente o texto mostrado. Prefira os
+seletores sem `:nth-of-type`, que resistem melhor a mudanças de layout, e confira em outro perfil antes de usar em lote.
+
 O botão **Aplicar modelo LinkedIn** preenche seletores de partida para perfis do LinkedIn. O LinkedIn altera o HTML com
 frequência; se um campo vier vazio, a extensão avisa quais campos não foram encontrados e você pode ajustar o seletor (botão
 direito → *Inspecionar* no elemento desejado).
@@ -118,6 +132,7 @@ src/
     auth.js            OAuth 2.0 (launchWebAuthFlow), token em chrome.storage.session
     config.js          configuração, modelo LinkedIn e validação
     extractor.js       função injetada na página para ler o DOM
+    scanner.js         função injetada na página para capturar seletores candidatos
     mapping.js         funções puras: mapeamento de colunas, deduplicação, sanitização
     service.js         fila, prévia/verificação e envio
     sheets.js          cliente da Sheets API (values.get / values.append) e tratamento de erros

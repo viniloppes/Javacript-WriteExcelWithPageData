@@ -5,11 +5,23 @@
 import { createAuth } from './lib/auth.js';
 import { loadConfig } from './lib/config.js';
 import { extractFromPage } from './lib/extractor.js';
+import { scanPage } from './lib/scanner.js';
 import { createService } from './lib/service.js';
 import { createSheetsClient } from './lib/sheets.js';
 
 const auth = createAuth(async () => (await loadConfig()).oauthClientId);
 const sheets = createSheetsClient({ auth });
+
+async function runInTab(tabId, func, args = []) {
+  let injection;
+  try {
+    [injection] = await chrome.scripting.executeScript({ target: { tabId }, func, args });
+  } catch (err) {
+    throw new Error(`Não foi possível ler esta página (${err.message}). Páginas internas do navegador não são suportadas.`);
+  }
+  if (!injection?.result) throw new Error('A leitura da página não retornou dados.');
+  return injection.result;
+}
 
 const service = createService({
   store: {
@@ -18,21 +30,14 @@ const service = createService({
   },
   loadConfig,
   sheets,
-  async extract(tabId, fields) {
-    let injection;
-    try {
-      [injection] = await chrome.scripting.executeScript({ target: { tabId }, func: extractFromPage, args: [fields] });
-    } catch (err) {
-      throw new Error(`Não foi possível ler esta página (${err.message}). Páginas internas do Chrome não são suportadas.`);
-    }
-    if (!injection?.result) throw new Error('A leitura da página não retornou dados.');
-    return injection.result;
-  },
+  extract: (tabId, fields) => runInTab(tabId, extractFromPage, [fields]),
+  scan: (tabId) => runInTab(tabId, scanPage, [{}]),
 });
 
 const handlers = {
   getState: () => service.getState(),
   extract: ({ tabId }) => service.extract(tabId),
+  scan: ({ tabId }) => service.scan(tabId),
   updateRecord: ({ id, column, value }) => service.updateRecord(id, column, value),
   removeRecord: ({ id }) => service.removeRecord(id),
   clearQueue: () => service.clearQueue(),

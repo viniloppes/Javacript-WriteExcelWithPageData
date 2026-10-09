@@ -188,3 +188,24 @@ test('commit concorrente é bloqueado', async () => {
   assert.equal(b.status, 'rejected');
   assert.equal(b.reason.kind, 'busy');
 });
+
+test('captura de seletores guarda a última varredura da página', async () => {
+  const store = memoryStore();
+  const candidates = [{ selector: '[id$="Topcard"] h2', attribute: '', text: 'Jane Doe', tag: 'h2', section: '', matches: 1 }];
+  const service = createService({
+    store,
+    loadConfig: async () => CONFIG,
+    sheets: fakeSheets([HEADER]),
+    extract: async () => ({}),
+    now: () => Date.UTC(2026, 9, 9),
+    scan: async (tabId) => ({ url: `https://www.linkedin.com/in/tab-${tabId}/`, title: 'Jane', candidates: tabId === 1 ? candidates : [] }),
+  });
+
+  assert.deepEqual(await service.scan(1), { count: 1, url: 'https://www.linkedin.com/in/tab-1/' });
+  const saved = await store.get('pageScan');
+  assert.equal(saved.candidates[0].selector, '[id$="Topcard"] h2');
+  assert.equal(saved.at, '2026-10-09T00:00:00.000Z');
+
+  await assert.rejects(service.scan(2), { kind: 'extract' });
+  assert.equal((await store.get('pageScan')).url, 'https://www.linkedin.com/in/tab-1/');
+});

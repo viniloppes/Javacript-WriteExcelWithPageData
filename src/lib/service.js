@@ -13,10 +13,11 @@ import { SheetsError } from './sheets.js';
  * @param {() => Promise<object>} deps.loadConfig
  * @param {ReturnType<import('./sheets.js').createSheetsClient>} deps.sheets
  * @param {(tabId: number, fields: object[]) => Promise<object>} deps.extract
+ * @param {(tabId: number) => Promise<{url: string, title: string, candidates: object[]}>} [deps.scan]
  * @param {() => string} [deps.newId]
  * @param {() => number} [deps.now]
  */
-export function createService({ store, loadConfig, sheets, extract, newId = () => crypto.randomUUID(), now = () => Date.now() }) {
+export function createService({ store, loadConfig, sheets, extract, scan, newId = () => crypto.randomUUID(), now = () => Date.now() }) {
   let busy = false;
 
   const getQueue = async () => (await store.get('queue')) ?? [];
@@ -88,6 +89,19 @@ export function createService({ store, loadConfig, sheets, extract, newId = () =
       const { queue, replaced } = mergeIntoQueue(await getQueue(), record, config.uniqueKeyColumn);
       await setQueue(queue);
       return { record, replaced, missing: result.missing };
+    },
+
+    /**
+     * Captura seletores candidatos da página para a escolha de seletores nas
+     * configurações. Guarda apenas a captura mais recente.
+     */
+    async scan(tabId) {
+      const result = await scan(tabId);
+      if (!result.candidates.length) {
+        throw new SheetsError('Nenhum texto visível encontrado nesta página.', { kind: 'extract' });
+      }
+      await store.set('pageScan', { ...result, at: new Date(now()).toISOString() });
+      return { count: result.candidates.length, url: result.url };
     },
 
     async updateRecord(id, column, value) {

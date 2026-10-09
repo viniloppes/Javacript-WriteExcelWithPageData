@@ -76,7 +76,18 @@ function renderFields() {
       renderFields();
     });
 
-    for (const control of [columnInput, sourceSelect, valueControl, attributeInput, remove]) {
+    const valueCell = document.createElement('div');
+    valueCell.className = 'value-cell';
+    const pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'pick';
+    pick.textContent = '🔍';
+    pick.title = 'Escolher entre os seletores capturados da página';
+    pick.setAttribute('aria-label', `Escolher seletor para ${field.column || 'este campo'}`);
+    pick.addEventListener('click', () => openPicker(field));
+    valueCell.append(valueControl, pick);
+
+    for (const control of [columnInput, sourceSelect, valueCell, attributeInput, remove]) {
       const td = document.createElement('td');
       td.append(control);
       tr.append(td);
@@ -85,6 +96,101 @@ function renderFields() {
   });
   $('fields').tBodies[0].replaceChildren(...rows);
   renderUniqueKey();
+}
+
+// --- Escolha de seletor a partir da captura feita no popup -------------------
+
+let pickerField = null;
+
+async function loadScan() {
+  const { pageScan } = await chrome.storage.local.get('pageScan');
+  return pageScan ?? null;
+}
+
+function applyCandidate(candidate, mode) {
+  const field = pickerField;
+  if (mode === 'append' && field.source === 'selector' && field.selector?.trim()) {
+    const lines = field.selector.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.includes(candidate.selector)) lines.push(candidate.selector);
+    field.selector = lines.join('\n');
+  } else {
+    field.selector = candidate.selector;
+    field.attribute = candidate.attribute;
+  }
+  field.source = 'selector';
+  $('picker').close();
+  renderFields();
+  setStatus(`Seletor aplicado em "${field.column}". Clique em Salvar para manter.`);
+}
+
+function renderPickerRows(scan) {
+  const filter = $('picker-filter').value.trim().toLowerCase();
+  const rows = scan.candidates.filter(
+    (c) => !filter || `${c.text} ${c.section} ${c.selector}`.toLowerCase().includes(filter),
+  );
+  $('picker-empty').hidden = rows.length > 0;
+  $('picker-empty').textContent = 'Nenhum seletor corresponde ao filtro.';
+
+  $('picker-rows').replaceChildren(
+    ...rows.slice(0, 300).map((candidate) => {
+      const tr = document.createElement('tr');
+      if (candidate.matches > 1) tr.className = 'warn';
+
+      const section = document.createElement('td');
+      section.textContent = candidate.section;
+      const text = document.createElement('td');
+      text.textContent = candidate.text;
+      const selector = document.createElement('td');
+      const code = document.createElement('code');
+      code.textContent = candidate.attribute ? `${candidate.selector}  @${candidate.attribute}` : candidate.selector;
+      selector.append(code);
+      const matches = document.createElement('td');
+      matches.textContent = candidate.matches;
+      matches.title =
+        candidate.matches > 1
+          ? 'O seletor encontra mais de um elemento; a extração usa o primeiro, que é este.'
+          : 'O seletor encontra só este elemento.';
+
+      const actions = document.createElement('td');
+      const use = document.createElement('button');
+      use.type = 'button';
+      use.textContent = 'Usar';
+      use.title = 'Substitui o seletor do campo';
+      use.addEventListener('click', () => applyCandidate(candidate, 'replace'));
+      const append = document.createElement('button');
+      append.type = 'button';
+      append.textContent = '+ Alternativa';
+      append.title = 'Adiciona como linha extra (usada se as anteriores não acharem nada)';
+      append.addEventListener('click', () => applyCandidate(candidate, 'append'));
+      actions.append(use, ' ', append);
+
+      tr.append(section, text, selector, matches, actions);
+      return tr;
+    }),
+  );
+}
+
+async function openPicker(field) {
+  pickerField = field;
+  const scan = await loadScan();
+  $('picker-title').textContent = `Escolher seletor para "${field.column || 'campo'}"`;
+  $('picker-filter').value = '';
+  if (!scan) {
+    $('picker-source').textContent = '';
+    $('picker-rows').replaceChildren();
+    $('picker-filter').hidden = true;
+    $('picker-empty').hidden = false;
+    $('picker-empty').textContent =
+      'Nenhuma captura ainda. Abra a página desejada (ex.: um perfil do LinkedIn), clique no ícone da extensão e em "Capturar seletores". Depois volte aqui.';
+  } else {
+    $('picker-filter').hidden = false;
+    const at = new Date(scan.at).toLocaleString();
+    $('picker-source').textContent = `Capturado de ${scan.title || scan.url} em ${at} · ${scan.candidates.length} seletores. Prefira seletores sem :nth-of-type, que resistem melhor a mudanças no site.`;
+    $('picker-filter').oninput = () => renderPickerRows(scan);
+    renderPickerRows(scan);
+  }
+  $('picker').showModal();
+  $('picker-filter').focus();
 }
 
 function readForm() {

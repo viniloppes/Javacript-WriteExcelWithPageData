@@ -160,15 +160,15 @@ td textarea {
   margin-top: 0;
 }
 
-td:nth-child(1) {
+#fields td:nth-child(1) {
   width: 20%;
 }
 
-td:nth-child(2) {
+#fields td:nth-child(2) {
   width: 18%;
 }
 
-td:nth-child(4) {
+#fields td:nth-child(4) {
   width: 12%;
 }
 
@@ -197,4 +197,82 @@ td:nth-child(4) {
     margin-bottom: 8px;
     padding: 4px;
   }
+}
+
+.value-cell {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.value-cell > :first-child {
+  flex: 1;
+}
+
+.pick {
+  padding: 4px 8px;
+  line-height: 1.2;
+}
+
+dialog {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.picker-head h2 {
+  margin: 0;
+}
+
+.picker-table {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.picker-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+
+.picker-table td {
+  font-size: 13px;
+}
+
+.picker-table td:nth-child(2) {
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
+.picker-table td:nth-child(3) code {
+  font-size: 12px;
+}
+
+.picker-table td:last-child {
+  white-space: nowrap;
+}
+
+.picker-table tr.warn td:nth-child(4) {
+  color: var(--error);
 }

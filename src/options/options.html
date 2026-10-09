@@ -90,6 +90,31 @@
         <span id="status" role="status"></span>
       </div>
     </main>
+
+    <dialog id="picker" aria-labelledby="picker-title">
+      <form method="dialog" class="picker-head">
+        <h2 id="picker-title">Escolher seletor</h2>
+        <button type="submit" aria-label="Fechar">Fechar</button>
+      </form>
+      <p id="picker-source" class="hint"></p>
+      <input id="picker-filter" type="search" placeholder="Filtrar por texto, seção ou seletor (ex.: Red Marketing)" autocomplete="off" />
+      <div class="picker-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Seção</th>
+              <th>Texto encontrado</th>
+              <th>Seletor</th>
+              <th title="Quantos elementos da página o seletor encontra; a extração usa o primeiro">Ocorr.</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="picker-rows"></tbody>
+        </table>
+      </div>
+      <p id="picker-empty" class="hint" hidden></p>
+    </dialog>
+
     <script type="module" src="options.js"></script>
   </body>
 </html>

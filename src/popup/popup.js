@@ -24,7 +24,7 @@ function hideConfirm() {
 }
 
 function setBusy(busy) {
-  for (const id of ['extract', 'clear', 'append', 'confirm-send']) $(id).disabled = busy;
+  for (const id of ['extract', 'scan', 'clear', 'append', 'confirm-send']) $(id).disabled = busy;
   if (!busy) updateButtons();
 }
 
@@ -138,15 +138,31 @@ async function run(action) {
 
 $('open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
+async function activeTabId() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) throw new Error('Nenhuma aba ativa encontrada.');
+  return tab.id;
+}
+
 $('extract').addEventListener('click', () =>
   run(async () => {
     hideConfirm();
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) throw new Error('Nenhuma aba ativa encontrada.');
-    const { replaced, missing } = await call('extract', { tabId: tab.id });
+    const tabId = await activeTabId();
+    const { replaced, missing } = await call('extract', { tabId });
     let text = replaced ? 'Registro já estava na fila e foi atualizado.' : 'Registro adicionado à fila.';
     if (missing.length) text += ` Campos não encontrados na página: ${missing.join(', ')}.`;
     showMessage(text, missing.length ? 'warning' : 'success');
+  }),
+);
+
+$('scan').addEventListener('click', () =>
+  run(async () => {
+    showMessage('Capturando seletores da página…');
+    const { count } = await call('scan', { tabId: await activeTabId() });
+    showMessage(
+      `${count} seletores capturados. Em Configurações, clique em 🔍 ao lado de um campo para escolher o seletor.`,
+      'success',
+    );
   }),
 );
 
