@@ -38,8 +38,17 @@ qualquer site podem ser configurados.
 1. Clone o repositório.
 2. Abra `chrome://extensions`, ative o **Modo do desenvolvedor** e clique em **Carregar sem compactação**, selecionando a pasta
    do repositório.
-3. A página de **Configurações** abre automaticamente. Anote o **URI de redirecionamento** exibido nela
-   (`https://<id-da-extensão>.chromiumapp.org/`).
+3. A página de **Configurações** abre automaticamente.
+
+O `manifest.json` tem uma chave pública (`key`), então o ID da extensão é sempre `dphpkiodclkeghjdhfaehfpekooibole`, em
+qualquer computador, pasta ou navegador (Chrome ou Edge). Por isso o **URI de redirecionamento** também é sempre o mesmo:
+
+```
+https://dphpkiodclkeghjdhfaehfpekooibole.chromiumapp.org/
+```
+
+> A `key` é a parte **pública** do par de chaves; ela só fixa o ID e não dá acesso a nada. A chave privada não é necessária
+> para carregar a extensão sem compactação e nunca deve ser versionada (`*.pem` está no `.gitignore`).
 
 ## Configurar o OAuth 2.0 no Google Cloud
 
@@ -49,11 +58,21 @@ qualquer site podem ser configurados.
    `https://www.googleapis.com/auth/spreadsheets` e inclua sua conta Google como **usuário de teste** (para uso pessoal o app
    pode permanecer em modo de teste).
 4. **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth**, tipo **Aplicativo da Web**. Em
-   *URIs de redirecionamento autorizados*, cole o URI copiado das configurações da extensão.
+   *URIs de redirecionamento autorizados*, cole `https://dphpkiodclkeghjdhfaehfpekooibole.chromiumapp.org/` (o mesmo
+   exibido nas configurações da extensão).
 5. Copie o **Client ID** (`…apps.googleusercontent.com`) para o campo *OAuth Client ID* nas configurações da extensão.
 
-> O ID da extensão (e portanto o URI de redirecionamento) depende da pasta carregada. Se você carregar a extensão de outro
-> lugar, atualize o URI no Google Cloud.
+## Compartilhar com outra pessoa
+
+1. Ela instala a extensão a partir do repositório (passos de **Instalação**). O ID e o URI de redirecionamento são os mesmos,
+   então **não é preciso mudar nada no Google Cloud** por causa da instalação dela.
+2. Com o app OAuth em modo de teste, adicione o e-mail Google dela em **Tela de consentimento OAuth → Usuários de teste**
+   (até 100 pessoas). Sem isso o Google bloqueia o login dela.
+3. Em **Configurações → Compartilhar configurações**, clique em **Exportar configurações** e envie o arquivo `.json`. Ela usa
+   **Importar configurações** e recebe Client ID, planilha, aba e todo o mapeamento com os seletores. O arquivo não contém
+   tokens nem senhas.
+4. Se ela for usar a mesma planilha, compartilhe-a com a conta Google dela como **Editor**. Se for usar outra, basta trocar a
+   URL da planilha depois de importar.
 
 ## Configurar a planilha
 

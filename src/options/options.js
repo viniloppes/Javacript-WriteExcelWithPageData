@@ -1,4 +1,4 @@
-import { LINKEDIN_PRESET, SOURCES, loadConfig, saveConfig, validateConfig } from '../lib/config.js';
+import { LINKEDIN_PRESET, SOURCES, exportConfig, loadConfig, parseImportedConfig, saveConfig, validateConfig } from '../lib/config.js';
 import { normalizeHeader, parseSpreadsheetId } from '../lib/mapping.js';
 import { call } from '../lib/messaging.js';
 
@@ -273,6 +273,50 @@ $('load-headers').addEventListener('click', async () => {
     setStatus(`Conexão OK. ${columns.length} colunas carregadas e salvas: ${columns.join(', ')}.`);
   } catch (err) {
     setStatus(err.message, true);
+  }
+});
+
+$('export').addEventListener('click', () => {
+  try {
+    const blob = new Blob([exportConfig(readForm())], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'pagina-para-google-sheets-config.json';
+    link.click();
+    URL.revokeObjectURL(link.href);
+    setStatus('Arquivo de configurações exportado.');
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
+$('open-import').addEventListener('click', () => {
+  $('import-text').value = '';
+  $('import-file').value = '';
+  $('import-error').textContent = '';
+  $('import-dialog').showModal();
+});
+
+$('import-file').addEventListener('change', async () => {
+  const [file] = $('import-file').files;
+  if (file) $('import-text').value = await file.text();
+});
+
+$('import').addEventListener('click', async () => {
+  try {
+    const config = parseImportedConfig($('import-text').value);
+    await saveConfig(config);
+    fillForm(config);
+    $('import-dialog').close();
+    const problems = validateConfig(config);
+    setStatus(
+      problems.length
+        ? `Configurações importadas e salvas. Ainda falta: ${problems.join(' ')}`
+        : 'Configurações importadas e salvas.',
+      problems.length > 0,
+    );
+  } catch (err) {
+    $('import-error').textContent = err.message;
   }
 });
 

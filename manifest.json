@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Página → Google Sheets",
   "description": "Lê campos configurados da página aberta e adiciona os registros a uma planilha do Google Sheets.",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAupG2h4cWRH1+DjoAY6rW/ZK+/wnOVJzQ40HXJO040fkzvlNC6XcDu+z4TVnlK3vpvFOQp9CRkmA1Z+x6BY+4yZAiLuNVWtEoPl2eyJw48YnDK17QLkAnLkwfJwP3cJp+SthQz7V0zmUIceR5LOAIoHJs2c/+RzC/C4grtTe96pUZNQY8V2AOTkPb3FMFbEMJn7K1LwpsfsEIuNdnMN8Ggx5FTklyll29+LuBd5FL+DYKVMAVjEO0TOw8TXlU9soC/zPYIQnE9lAoH1lUL8RboOuzfMePxaOwVaYko/C2G71Z3pQbzb5iHHH/fKtaY5eyWTpyqxgfjRMNXiftv1G6OQIDAQAB",
   "action": {
     "default_title": "Adicionar dados da página à planilha",
     "default_popup": "src/popup/popup.html",

@@ -85,6 +85,18 @@
         </p>
       </section>
 
+      <section>
+        <h2>4. Compartilhar configurações</h2>
+        <p class="hint">
+          Exporte para um arquivo o Client ID, a planilha, a aba e todo o mapeamento (com os seletores) e importe em outro navegador ou
+          computador. O arquivo não contém senhas nem tokens de acesso.
+        </p>
+        <div class="actions">
+          <button type="button" id="export">Exportar configurações</button>
+          <button type="button" id="open-import">Importar configurações</button>
+        </div>
+      </section>
+
       <div class="actions sticky">
         <button type="button" id="save" class="primary">Salvar</button>
         <span id="status" role="status"></span>
@@ -113,6 +125,20 @@
         </table>
       </div>
       <p id="picker-empty" class="hint" hidden></p>
+    </dialog>
+
+    <dialog id="import-dialog" aria-labelledby="import-title">
+      <form method="dialog" class="picker-head">
+        <h2 id="import-title">Importar configurações</h2>
+        <button type="submit" aria-label="Fechar">Fechar</button>
+      </form>
+      <p class="hint">Escolha o arquivo exportado ou cole o conteúdo dele abaixo. A configuração atual deste navegador será substituída.</p>
+      <input id="import-file" type="file" accept="application/json,.json" />
+      <textarea id="import-text" rows="10" spellcheck="false" placeholder='{"format": "pagina-para-google-sheets/config", ...}'></textarea>
+      <div class="actions">
+        <button type="button" id="import" class="primary">Importar e salvar</button>
+        <span id="import-error" class="error-text" role="alert"></span>
+      </div>
     </dialog>
 
     <script type="module" src="options.js"></script>

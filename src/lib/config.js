@@ -78,3 +78,58 @@ export function validateConfig(config) {
   }
   return problems;
 }
+
+export const EXPORT_FORMAT = 'pagina-para-google-sheets/config';
+
+/** Gera o conteúdo do arquivo de exportação (sem tokens: eles nunca ficam na configuração). */
+export function exportConfig(config) {
+  const { oauthClientId, spreadsheetId, sheetName, headerRow, uniqueKeyColumn, fields } = config;
+  return JSON.stringify(
+    { format: EXPORT_FORMAT, version: 1, config: { oauthClientId, spreadsheetId, sheetName, headerRow, uniqueKeyColumn, fields } },
+    null,
+    2,
+  );
+}
+
+/**
+ * Lê um arquivo exportado (ou o JSON da configuração colado diretamente) e
+ * devolve uma configuração completa. Lança erro com mensagem amigável se o
+ * conteúdo não for válido.
+ */
+export function parseImportedConfig(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('O conteúdo não é um JSON válido.');
+  }
+  const raw = data?.format === EXPORT_FORMAT ? data.config : data;
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.fields)) {
+    throw new Error('O arquivo não contém uma configuração desta extensão (lista "fields" ausente).');
+  }
+
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const fields = raw.fields
+    .filter((f) => f && typeof f === 'object' && str(f.column))
+    .map((f) => {
+      const field = { column: str(f.column), source: Object.hasOwn(SOURCES, f.source) ? f.source : 'constant' };
+      if (field.source === 'selector') {
+        field.selector = typeof f.selector === 'string' ? f.selector : '';
+        if (str(f.attribute)) field.attribute = str(f.attribute);
+      }
+      if (field.source === 'constant') field.value = typeof f.value === 'string' ? f.value : '';
+      return field;
+    });
+  if (!fields.length) throw new Error('A configuração importada não tem nenhum campo.');
+
+  const headerRow = Number.parseInt(raw.headerRow, 10);
+  const uniqueKeyColumn = str(raw.uniqueKeyColumn);
+  return {
+    oauthClientId: str(raw.oauthClientId),
+    spreadsheetId: /^[a-zA-Z0-9_-]{20,}$/.test(str(raw.spreadsheetId)) ? str(raw.spreadsheetId) : '',
+    sheetName: str(raw.sheetName) || DEFAULT_CONFIG.sheetName,
+    headerRow: headerRow >= 1 ? headerRow : DEFAULT_CONFIG.headerRow,
+    uniqueKeyColumn: fields.some((f) => f.column === uniqueKeyColumn) ? uniqueKeyColumn : '',
+    fields,
+  };
+}

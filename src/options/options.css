@@ -276,3 +276,7 @@ dialog::backdrop {
 .picker-table tr.warn td:nth-child(4) {
   color: var(--error);
 }
+
+.error-text {
+  color: var(--error);
+}
