@@ -54,13 +54,33 @@ export const DEFAULT_CONFIG = {
   fields: LINKEDIN_PRESET.fields,
 };
 
+/**
+ * Normaliza a lista de abas de destino (`sheetNames`). A primeira é a padrão
+ * e também fica em `sheetName`, que é o único campo das configurações antigas.
+ * Nomes de abas não diferenciam maiúsculas no Google Sheets.
+ */
+export function normalizeSheets(config) {
+  const source = Array.isArray(config.sheetNames) && config.sheetNames.length ? config.sheetNames : [config.sheetName];
+  const seen = new Set();
+  const sheetNames = source
+    .map((name) => (typeof name === 'string' ? name.trim() : ''))
+    .filter((name) => name && !seen.has(name.toLowerCase()) && seen.add(name.toLowerCase()));
+  return { ...config, sheetNames, sheetName: sheetNames[0] ?? '' };
+}
+
+/** Aba de destino de um registro: a escolhida, se ainda estiver configurada, ou a padrão. */
+export function resolveSheet(config, sheetName) {
+  const wanted = String(sheetName ?? '').trim().toLowerCase();
+  return config.sheetNames.find((name) => name.toLowerCase() === wanted) ?? config.sheetNames[0];
+}
+
 export async function loadConfig() {
   const { config } = await chrome.storage.sync.get('config');
-  return { ...DEFAULT_CONFIG, ...(config ?? {}) };
+  return normalizeSheets({ ...DEFAULT_CONFIG, ...(config ?? {}) });
 }
 
 export async function saveConfig(config) {
-  await chrome.storage.sync.set({ config });
+  await chrome.storage.sync.set({ config: normalizeSheets(config) });
 }
 
 /** Retorna a lista de problemas que impedem o envio (vazia = configuração ok). */
@@ -68,7 +88,7 @@ export function validateConfig(config) {
   const problems = [];
   if (!config.oauthClientId?.trim()) problems.push('OAuth Client ID não configurado.');
   if (!config.spreadsheetId) problems.push('ID da planilha não configurado.');
-  if (!config.sheetName?.trim()) problems.push('Nome da aba não configurado.');
+  if (!config.sheetNames?.length) problems.push('Nenhuma aba de destino configurada.');
   if (!Number.isInteger(config.headerRow) || config.headerRow < 1) problems.push('Linha de cabeçalho inválida.');
   if (!config.fields?.length) problems.push('Nenhum campo mapeado.');
   const columns = (config.fields ?? []).map((f) => f.column?.trim().toLowerCase());
@@ -84,9 +104,9 @@ export const EXPORT_FORMAT = 'pagina-para-google-sheets/config';
 
 /** Gera o conteúdo do arquivo de exportação (sem tokens: eles nunca ficam na configuração). */
 export function exportConfig(config) {
-  const { oauthClientId, spreadsheetId, sheetName, headerRow, uniqueKeyColumn, fields } = config;
+  const { oauthClientId, spreadsheetId, sheetNames, headerRow, uniqueKeyColumn, fields } = normalizeSheets(config);
   return JSON.stringify(
-    { format: EXPORT_FORMAT, version: 1, config: { oauthClientId, spreadsheetId, sheetName, headerRow, uniqueKeyColumn, fields } },
+    { format: EXPORT_FORMAT, version: 1, config: { oauthClientId, spreadsheetId, sheetNames, headerRow, uniqueKeyColumn, fields } },
     null,
     2,
   );
@@ -125,10 +145,12 @@ export function parseImportedConfig(text) {
 
   const headerRow = Number.parseInt(raw.headerRow, 10);
   const uniqueKeyColumn = str(raw.uniqueKeyColumn);
+  const sheets = normalizeSheets({ sheetNames: Array.isArray(raw.sheetNames) ? raw.sheetNames : [], sheetName: raw.sheetName });
   return {
     oauthClientId: str(raw.oauthClientId),
     spreadsheetId: /^[a-zA-Z0-9_-]{20,}$/.test(str(raw.spreadsheetId)) ? str(raw.spreadsheetId) : '',
-    sheetName: str(raw.sheetName) || DEFAULT_CONFIG.sheetName,
+    sheetName: sheets.sheetName || DEFAULT_CONFIG.sheetName,
+    sheetNames: sheets.sheetNames.length ? sheets.sheetNames : [DEFAULT_CONFIG.sheetName],
     headerRow: headerRow >= 1 ? headerRow : DEFAULT_CONFIG.headerRow,
     uniqueKeyColumn: fields.some((f) => f.column === uniqueKeyColumn) ? uniqueKeyColumn : '',
     fields,

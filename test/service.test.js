@@ -165,8 +165,8 @@ test('colunas mapeadas ausentes no cabeçalho bloqueiam o envio', async () => {
   sheets.rows[0] = HEADER.filter((h) => h !== 'Level');
   await service.extract(1);
   const plan = await service.prepare();
-  assert.deepEqual(plan.missingColumns, ['Level']);
-  await assert.rejects(service.commit(plan.toAppendIds), /Level/);
+  assert.deepEqual(plan.missingColumns, ['Level (aba "CRM")']);
+  await assert.rejects(service.commit(plan.toAppendIds), /Level \(aba "CRM"\)/);
   assert.equal(sheets.rows.length, 3);
 });
 
@@ -208,4 +208,109 @@ test('captura de seletores guarda a última varredura da página', async () => {
 
   await assert.rejects(service.scan(2), { kind: 'extract' });
   assert.equal((await store.get('pageScan')).url, 'https://www.linkedin.com/in/tab-1/');
+});
+
+/** Planilha com várias abas em memória, cada uma com seu cabeçalho. */
+function fakeWorkbook(tabs) {
+  const books = Object.fromEntries(Object.entries(tabs).map(([name, rows]) => [name, fakeSheets(rows)]));
+  const tab = (name) => {
+    if (!books[name]) throw new SheetsError('Aba não encontrada.', { kind: 'not_found' });
+    return books[name];
+  };
+  return {
+    books,
+    getHeader: (id, name) => tab(name).getHeader(),
+    getColumnValues: (id, name, ...rest) => tab(name).getColumnValues(id, name, ...rest),
+    appendRows: (id, name, rows) => tab(name).appendRows(id, name, rows),
+  };
+}
+
+function setupTabs(tabs) {
+  const sheets = fakeWorkbook(tabs);
+  let n = 0;
+  const service = createService({
+    store: memoryStore(),
+    loadConfig: async () => ({ ...CONFIG, sheetName: undefined, sheetNames: ['Clientes', 'Parceiros'] }),
+    sheets,
+    newId: () => `r${++n}`,
+    now: () => Date.UTC(2026, 9, 9),
+    async extract(tabId, fields) {
+      const values = Object.fromEntries(fields.map((f) => [f.column, PAGES[tabId][f.column] ?? '']));
+      return { values, missing: [], pageUrl: PAGES[tabId]['Linkedin profile'] };
+    },
+  });
+  return { service, sheets };
+}
+
+test('várias abas: cada registro vai para a aba escolhida', async () => {
+  // A aba Parceiros tem as colunas em outra ordem.
+  const partnersHeader = ['Linkedin profile', 'Contact', 'Company', 'Date', 'Level', 'Country', 'Sector', 'Website', 'Status'];
+  const { service, sheets } = setupTabs({ Clientes: [HEADER], Parceiros: [partnersHeader] });
+
+  const jane = await service.extract(1); // sem escolha -> aba padrão
+  assert.equal(jane.record.sheetName, 'Clientes');
+  const john = await service.extract(2, 'parceiros');
+  assert.equal(john.record.sheetName, 'Parceiros');
+
+  const plan = await service.prepare();
+  assert.deepEqual(plan.sheets, [
+    { sheetName: 'Clientes', adds: 1, duplicates: 0 },
+    { sheetName: 'Parceiros', adds: 1, duplicates: 0 },
+  ]);
+  const result = await service.commit([...plan.toAppendIds, ...plan.duplicateIds]);
+  assert.equal(result.updatedRows, 2);
+  assert.deepEqual(
+    result.sheets.map((s) => [s.sheetName, s.updatedRows]),
+    [['Clientes', 1], ['Parceiros', 1]],
+  );
+  assert.equal(sheets.books.Clientes.rows[1][4], 'Jane Doe');
+  assert.deepEqual(sheets.books.Parceiros.rows[1].slice(0, 3), ['https://www.linkedin.com/in/john-roe/', 'John Roe', 'Globex']);
+});
+
+test('várias abas: trocar a aba na prévia e checar duplicados na aba de destino', async () => {
+  const { service, sheets } = setupTabs({
+    Clientes: [HEADER],
+    Parceiros: [HEADER, ['Acme', '', '', '', 'Jane Doe', '', 'https://linkedin.com/in/jane-doe', '', '']],
+  });
+  const { record } = await service.extract(1);
+  let plan = await service.prepare();
+  assert.deepEqual(plan.toAppendIds, [record.id]); // não existe em Clientes
+
+  await service.setRecordSheet(record.id, 'Parceiros');
+  plan = await service.prepare();
+  assert.deepEqual(plan.duplicateIds, [record.id]); // já existe em Parceiros
+  await service.commit([...plan.toAppendIds, ...plan.duplicateIds]);
+  assert.equal(sheets.books.Parceiros.rows.length, 2);
+  assert.equal(sheets.books.Clientes.rows.length, 1);
+});
+
+test('várias abas: falha em uma aba mantém só os registros dela na fila', async () => {
+  const { service, sheets } = setupTabs({ Clientes: [HEADER], Parceiros: [HEADER] });
+  await service.extract(1, 'Clientes');
+  await service.extract(2, 'Parceiros');
+  const plan = await service.prepare();
+  sheets.books.Parceiros.failNextAppend = new SheetsError('Falha de conexão.', { kind: 'network' });
+
+  await assert.rejects(service.commit(plan.toAppendIds), (err) => {
+    assert.equal(err.kind, 'network');
+    assert.match(err.message, /Linhas já adicionadas: 1 em "Clientes". Falha na aba "Parceiros"/);
+    return true;
+  });
+  const { queue } = await service.getState();
+  assert.deepEqual(queue.map((r) => r.sheetName), ['Parceiros']);
+  assert.equal(sheets.books.Clientes.rows.length, 2);
+
+  const retry = await service.commit(queue.map((r) => r.id));
+  assert.equal(retry.updatedRows, 1);
+  assert.equal(sheets.books.Clientes.rows.length, 2); // não duplicou
+});
+
+test('várias abas: coluna ausente em qualquer aba bloqueia tudo antes de gravar', async () => {
+  const { service, sheets } = setupTabs({ Clientes: [HEADER], Parceiros: [HEADER.filter((h) => h !== 'Level')] });
+  await service.extract(1, 'Clientes');
+  await service.extract(2, 'Parceiros');
+  const plan = await service.prepare();
+  assert.deepEqual(plan.missingColumns, ['Level (aba "Parceiros")']);
+  await assert.rejects(service.commit(plan.toAppendIds), /Level \(aba "Parceiros"\)/);
+  assert.equal(sheets.books.Clientes.rows.length, 1);
 });

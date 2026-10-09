@@ -3,7 +3,7 @@
 // que o fluxo completo possa ser testado em Node.
 
 import { mergeIntoQueue, planAppend, resolveColumns } from './mapping.js';
-import { validateConfig } from './config.js';
+import { normalizeSheets, resolveSheet, validateConfig } from './config.js';
 import { SheetsError } from './sheets.js';
 
 /**
@@ -17,8 +17,9 @@ import { SheetsError } from './sheets.js';
  * @param {() => string} [deps.newId]
  * @param {() => number} [deps.now]
  */
-export function createService({ store, loadConfig, sheets, extract, scan, newId = () => crypto.randomUUID(), now = () => Date.now() }) {
+export function createService({ store, loadConfig: loadRawConfig, sheets, extract, scan, newId = () => crypto.randomUUID(), now = () => Date.now() }) {
   let busy = false;
+  const loadConfig = async () => normalizeSheets(await loadRawConfig());
 
   const getQueue = async () => (await store.get('queue')) ?? [];
   const setQueue = (queue) => store.set('queue', queue);
@@ -30,10 +31,10 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
     return config;
   }
 
-  async function readSheetState(config) {
-    const header = await sheets.getHeader(config.spreadsheetId, config.sheetName, config.headerRow);
+  async function readSheetState(config, sheetName) {
+    const header = await sheets.getHeader(config.spreadsheetId, sheetName, config.headerRow);
     if (!header.some((h) => h.trim())) {
-      throw new SheetsError(`A linha ${config.headerRow} da aba "${config.sheetName}" não tem cabeçalhos.`, {
+      throw new SheetsError(`A linha ${config.headerRow} da aba "${sheetName}" não tem cabeçalhos.`, {
         kind: 'config',
       });
     }
@@ -43,11 +44,35 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
       const { positions } = resolveColumns(header, keyField);
       const keyIndex = positions.get(config.uniqueKeyColumn);
       if (keyIndex !== undefined) {
-        existingKeys = await sheets.getColumnValues(config.spreadsheetId, config.sheetName, keyIndex, config.headerRow);
+        existingKeys = await sheets.getColumnValues(config.spreadsheetId, sheetName, keyIndex, config.headerRow);
       }
     }
     return { header, existingKeys };
   }
+
+  /**
+   * Agrupa os registros pela aba de destino e monta um plano por aba. Cada aba
+   * tem seu próprio cabeçalho (a ordem das colunas pode variar) e a checagem
+   * de duplicados é feita na aba de destino de cada registro.
+   */
+  async function planBySheet(config, records) {
+    const groups = new Map();
+    for (const record of records) {
+      const sheetName = resolveSheet(config, record.sheetName);
+      if (!groups.has(sheetName)) groups.set(sheetName, []);
+      groups.get(sheetName).push(record);
+    }
+    const plans = [];
+    for (const [sheetName, group] of groups) {
+      const { header, existingKeys } = await readSheetState(config, sheetName);
+      const plan = planAppend({ records: group, header, fields: config.fields, uniqueKeyColumn: config.uniqueKeyColumn, existingKeys });
+      plans.push({ sheetName, ...plan });
+    }
+    return plans;
+  }
+
+  const missingColumns = (plans) =>
+    plans.flatMap((p) => p.missingColumns.map((column) => `${column} (aba "${p.sheetName}")`));
 
   async function withLock(fn) {
     if (busy) throw new SheetsError('Já existe um envio em andamento.', { kind: 'busy' });
@@ -72,8 +97,11 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
       };
     },
 
-    /** Lê os campos configurados na aba e adiciona o registro à fila local. */
-    async extract(tabId) {
+    /**
+     * Lê os campos configurados na aba do navegador e adiciona o registro à
+     * fila local, destinado à aba da planilha escolhida (ou à padrão).
+     */
+    async extract(tabId, sheetName) {
       const config = await loadConfig();
       if (!config.fields?.length) throw new SheetsError('Nenhum campo mapeado nas opções.', { kind: 'config' });
       const result = await extract(tabId, config.fields);
@@ -84,6 +112,7 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
         id: newId(),
         extractedAt: new Date(now()).toISOString(),
         pageUrl: result.pageUrl,
+        sheetName: resolveSheet(config, sheetName),
         values: result.values,
       };
       const { queue, replaced } = mergeIntoQueue(await getQueue(), record, config.uniqueKeyColumn);
@@ -109,6 +138,12 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
       await setQueue(queue.map((r) => (r.id === id ? { ...r, values: { ...r.values, [column]: value } } : r)));
     },
 
+    async setRecordSheet(id, sheetName) {
+      const config = await loadConfig();
+      const queue = await getQueue();
+      await setQueue(queue.map((r) => (r.id === id ? { ...r, sheetName: resolveSheet(config, sheetName) } : r)));
+    },
+
     async removeRecord(id) {
       await setQueue((await getQueue()).filter((r) => r.id !== id));
     },
@@ -127,16 +162,16 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
       const queue = await getQueue();
       if (!queue.length) throw new SheetsError('Nenhum registro na fila. Extraia dados de uma página primeiro.', { kind: 'empty' });
 
-      const { header, existingKeys } = await readSheetState(config);
-      const plan = planAppend({ records: queue, header, fields: config.fields, uniqueKeyColumn: config.uniqueKeyColumn, existingKeys });
-      await store.set('statuses', plan.statuses);
+      const plans = await planBySheet(config, queue);
+      const statuses = Object.assign({}, ...plans.map((p) => p.statuses));
+      await store.set('statuses', statuses);
       return {
         spreadsheetId: config.spreadsheetId,
-        sheetName: config.sheetName,
-        missingColumns: plan.missingColumns,
-        toAppendIds: plan.toAppend.map((p) => p.record.id),
-        duplicateIds: plan.duplicates.map((r) => r.id),
-        statuses: plan.statuses,
+        missingColumns: missingColumns(plans),
+        toAppendIds: plans.flatMap((p) => p.toAppend.map((item) => item.record.id)),
+        duplicateIds: plans.flatMap((p) => p.duplicates.map((r) => r.id)),
+        sheets: plans.map((p) => ({ sheetName: p.sheetName, adds: p.toAppend.length, duplicates: p.duplicates.length })),
+        statuses,
       };
     },
 
@@ -152,39 +187,60 @@ export function createService({ store, loadConfig, sheets, extract, scan, newId 
         const records = (await getQueue()).filter((r) => confirmed.has(r.id));
         if (!records.length) throw new SheetsError('Nenhum registro confirmado para envio.', { kind: 'empty' });
 
-        const { header, existingKeys } = await readSheetState(config);
-        const plan = planAppend({ records, header, fields: config.fields, uniqueKeyColumn: config.uniqueKeyColumn, existingKeys });
-        if (plan.missingColumns.length) {
-          throw new SheetsError(`Colunas não encontradas no cabeçalho da planilha: ${plan.missingColumns.join(', ')}.`, {
-            kind: 'config',
+        // Todas as abas são verificadas antes de qualquer gravação.
+        const plans = await planBySheet(config, records);
+        const missing = missingColumns(plans);
+        if (missing.length) {
+          throw new SheetsError(`Colunas não encontradas no cabeçalho da planilha: ${missing.join(', ')}.`, { kind: 'config' });
+        }
+
+        const done = new Set();
+        const perSheet = [];
+        const finish = async () => {
+          await setQueue((await getQueue()).filter((r) => !done.has(r.id)));
+          const statuses = (await store.get('statuses')) ?? {};
+          for (const id of done) delete statuses[id];
+          await store.set('statuses', statuses);
+          const result = {
+            at: new Date(now()).toISOString(),
+            updatedRows: perSheet.reduce((sum, s) => sum + s.updatedRows, 0),
+            skippedDuplicates: perSheet.reduce((sum, s) => sum + s.skippedDuplicates, 0),
+            sheets: perSheet,
+          };
+          await store.set('lastResult', result);
+          return result;
+        };
+
+        for (const plan of plans) {
+          let appended = { updatedRows: 0, updatedRange: '' };
+          if (plan.toAppend.length) {
+            try {
+              appended = await sheets.appendRows(
+                config.spreadsheetId,
+                plan.sheetName,
+                plan.toAppend.map((p) => p.row),
+                config.headerRow,
+              );
+            } catch (err) {
+              // Abas já gravadas saem da fila; esta e as seguintes continuam nela.
+              const partial = await finish();
+              if (partial.updatedRows) {
+                const sent = partial.sheets.map((s) => `${s.updatedRows} em "${s.sheetName}"`).join(', ');
+                err.message = `Linhas já adicionadas: ${sent}. Falha na aba "${plan.sheetName}": ${err.message}`;
+              }
+              throw err;
+            }
+          }
+          for (const item of plan.toAppend) done.add(item.record.id);
+          for (const record of plan.duplicates) done.add(record.id);
+          perSheet.push({
+            sheetName: plan.sheetName,
+            updatedRows: appended.updatedRows,
+            updatedRange: appended.updatedRange,
+            skippedDuplicates: plan.duplicates.length,
           });
         }
-
-        let appended = { updatedRows: 0, updatedRange: '' };
-        if (plan.toAppend.length) {
-          appended = await sheets.appendRows(
-            config.spreadsheetId,
-            config.sheetName,
-            plan.toAppend.map((p) => p.row),
-            config.headerRow,
-          );
-        }
-
-        const done = new Set([...plan.toAppend.map((p) => p.record.id), ...plan.duplicates.map((r) => r.id)]);
-        await setQueue((await getQueue()).filter((r) => !done.has(r.id)));
-        const statuses = (await store.get('statuses')) ?? {};
-        for (const id of done) delete statuses[id];
-        await store.set('statuses', statuses);
-
-        const result = {
-          at: new Date(now()).toISOString(),
-          updatedRows: appended.updatedRows,
-          updatedRange: appended.updatedRange,
-          skippedDuplicates: plan.duplicates.length,
-          sheetName: config.sheetName,
-        };
-        await store.set('lastResult', result);
-        return result;
+        return finish();
       });
     },
 

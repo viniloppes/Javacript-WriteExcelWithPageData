@@ -183,3 +183,27 @@ td input:focus {
   padding: 8px 10px;
   margin: 8px 0;
 }
+
+.sheet-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+select {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+td select {
+  max-width: 140px;
+}
+
+.sheet-picker[hidden] {
+  display: none;
+}

@@ -36,9 +36,10 @@ const service = createService({
 
 const handlers = {
   getState: () => service.getState(),
-  extract: ({ tabId }) => service.extract(tabId),
+  extract: ({ tabId, sheetName }) => service.extract(tabId, sheetName),
   scan: ({ tabId }) => service.scan(tabId),
   updateRecord: ({ id, column, value }) => service.updateRecord(id, column, value),
+  setRecordSheet: ({ id, sheetName }) => service.setRecordSheet(id, sheetName),
   removeRecord: ({ id }) => service.removeRecord(id),
   clearQueue: () => service.clearQueue(),
   prepare: () => service.prepare(),

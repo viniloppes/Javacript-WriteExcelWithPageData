@@ -1,5 +1,14 @@
-import { LINKEDIN_PRESET, SOURCES, exportConfig, loadConfig, parseImportedConfig, saveConfig, validateConfig } from '../lib/config.js';
-import { normalizeHeader, parseSpreadsheetId } from '../lib/mapping.js';
+import {
+  LINKEDIN_PRESET,
+  SOURCES,
+  exportConfig,
+  loadConfig,
+  normalizeSheets,
+  parseImportedConfig,
+  saveConfig,
+  validateConfig,
+} from '../lib/config.js';
+import { normalizeHeader, parseSpreadsheetId, resolveColumns } from '../lib/mapping.js';
 import { call } from '../lib/messaging.js';
 
 const $ = (id) => document.getElementById(id);
@@ -198,20 +207,20 @@ function readForm() {
   const spreadsheetId = spreadsheetInput ? parseSpreadsheetId(spreadsheetInput) : '';
   if (spreadsheetId === null) throw new Error('URL ou ID da planilha inválido.');
   uniqueKeyColumn = $('unique-key').value;
-  return {
+  return normalizeSheets({
     oauthClientId: $('client-id').value.trim(),
     spreadsheetId,
-    sheetName: $('sheet-name').value.trim(),
+    sheetNames: $('sheet-names').value.split('\n'),
     headerRow: Number.parseInt($('header-row').value, 10),
     uniqueKeyColumn,
     fields: fields.map((f) => ({ ...f, column: f.column.trim() })),
-  };
+  });
 }
 
 function fillForm(config) {
   $('client-id').value = config.oauthClientId;
   $('spreadsheet').value = config.spreadsheetId;
-  $('sheet-name').value = config.sheetName;
+  $('sheet-names').value = config.sheetNames.join('\n');
   $('header-row').value = config.headerRow;
   fields = structuredClone(config.fields);
   uniqueKeyColumn = config.uniqueKeyColumn;
@@ -270,7 +279,21 @@ $('load-headers').addEventListener('click', async () => {
     });
     renderFields();
     await save();
-    setStatus(`Conexão OK. ${columns.length} colunas carregadas e salvas: ${columns.join(', ')}.`);
+
+    // As demais abas precisam ter as colunas mapeadas (em qualquer ordem).
+    const warnings = [];
+    for (const sheetName of config.sheetNames.slice(1)) {
+      try {
+        const other = await call('loadHeaders', { spreadsheetId: config.spreadsheetId, sheetName, headerRow: config.headerRow });
+        const { missing } = resolveColumns(other, fields);
+        if (missing.length) warnings.push(`aba "${sheetName}" sem as colunas ${missing.join(', ')}`);
+      } catch (err) {
+        warnings.push(`aba "${sheetName}": ${err.message}`);
+      }
+    }
+    const loaded = `${columns.length} colunas carregadas da aba "${config.sheetName}" e salvas: ${columns.join(', ')}.`;
+    if (warnings.length) setStatus(`${loaded} Atenção: ${warnings.join('; ')}.`, true);
+    else setStatus(`Conexão OK. ${loaded}${config.sheetNames.length > 1 ? ' As outras abas têm as mesmas colunas.' : ''}`);
   } catch (err) {
     setStatus(err.message, true);
   }

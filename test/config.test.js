@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DEFAULT_CONFIG, exportConfig, parseImportedConfig } from '../src/lib/config.js';
+import { DEFAULT_CONFIG, exportConfig, normalizeSheets, parseImportedConfig, resolveSheet } from '../src/lib/config.js';
 
 const CONFIG = {
   ...DEFAULT_CONFIG,
@@ -24,6 +24,7 @@ test('exportar e importar preserva a configuração', () => {
     oauthClientId: CONFIG.oauthClientId,
     spreadsheetId: CONFIG.spreadsheetId,
     sheetName: 'CRM',
+    sheetNames: ['CRM'],
     headerRow: 1,
     uniqueKeyColumn: 'Linkedin profile',
     fields: CONFIG.fields,
@@ -55,4 +56,25 @@ test('importar rejeita conteúdo que não é configuração', () => {
   assert.throws(() => parseImportedConfig('não é json'), /JSON válido/);
   assert.throws(() => parseImportedConfig('{"a":1}'), /fields/);
   assert.throws(() => parseImportedConfig('{"fields":[]}'), /nenhum campo/);
+});
+
+test('várias abas: lista normalizada, a primeira é a padrão', () => {
+  const config = normalizeSheets({ sheetName: 'antiga', sheetNames: [' Clientes ', 'Parceiros', 'clientes', ''] });
+  assert.deepEqual(config.sheetNames, ['Clientes', 'Parceiros']);
+  assert.equal(config.sheetName, 'Clientes');
+  assert.equal(resolveSheet(config, 'parceiros'), 'Parceiros');
+  assert.equal(resolveSheet(config, 'Removida'), 'Clientes');
+  assert.equal(resolveSheet(config, undefined), 'Clientes');
+});
+
+test('configuração antiga com uma só aba continua funcionando', () => {
+  assert.deepEqual(normalizeSheets({ sheetName: 'CRM' }).sheetNames, ['CRM']);
+  const imported = parseImportedConfig(JSON.stringify({ sheetName: 'CRM', fields: [{ column: 'A', source: 'url' }] }));
+  assert.deepEqual(imported.sheetNames, ['CRM']);
+});
+
+test('exportar e importar preserva várias abas', () => {
+  const imported = parseImportedConfig(exportConfig({ ...CONFIG, sheetNames: ['Clientes', 'Parceiros'] }));
+  assert.deepEqual(imported.sheetNames, ['Clientes', 'Parceiros']);
+  assert.equal(imported.sheetName, 'Clientes');
 });

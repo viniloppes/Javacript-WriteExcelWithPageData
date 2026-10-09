@@ -39,8 +39,8 @@
         </label>
         <div class="row">
           <label>
-            Nome da aba
-            <input id="sheet-name" type="text" placeholder="Sheet1" />
+            Abas de destino (uma por linha)
+            <textarea id="sheet-names" rows="3" spellcheck="false" placeholder="Sheet1"></textarea>
           </label>
           <label>
             Linha do cabeçalho
@@ -48,7 +48,14 @@
           </label>
         </div>
         <button type="button" id="load-headers">Carregar colunas da planilha</button>
-        <p class="hint">Lê os cabeçalhos da aba e cria um campo para cada coluna, mantendo os mapeamentos já existentes.</p>
+        <p class="hint">
+          Com mais de uma aba, você escolhe no popup para qual aba vai cada pessoa; a primeira da lista é a padrão. As abas podem ter
+          as colunas em ordens diferentes, mas precisam ter os mesmos nomes de coluna.
+        </p>
+        <p class="hint">
+          "Carregar colunas" lê os cabeçalhos da primeira aba, cria um campo para cada coluna (mantendo os mapeamentos já existentes) e
+          confere se as outras abas têm as mesmas colunas.
+        </p>
       </section>
 
       <section>

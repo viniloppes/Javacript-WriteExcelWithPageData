@@ -76,7 +76,8 @@ https://dphpkiodclkeghjdhfaehfpekooibole.chromiumapp.org/
 
 ## Configurar a planilha
 
-1. Cole a **URL** (ou o ID) da planilha e informe o **nome da aba** (ex.: `Sheet1`) e a **linha do cabeçalho** (normalmente `1`).
+1. Cole a **URL** (ou o ID) da planilha e informe as **abas de destino**, uma por linha (ex.: `Sheet1`), e a **linha do
+   cabeçalho** (normalmente `1`).
 2. Clique em **Carregar colunas da planilha**: o Google pede autorização na primeira vez; em seguida a extensão cria um campo
    para cada coluna do cabeçalho, mantendo mapeamentos já existentes.
 3. Para cada coluna, escolha a **origem**:
@@ -104,6 +105,16 @@ seletores sem `:nth-of-type`, que resistem melhor a mudanças de layout, e confi
 O botão **Aplicar modelo LinkedIn** preenche seletores de partida para perfis do LinkedIn. O LinkedIn altera o HTML com
 frequência; se um campo vier vazio, a extensão avisa quais campos não foram encontrados e você pode ajustar o seletor (botão
 direito → *Inspecionar* no elemento desejado).
+
+### Várias abas de destino
+
+Com mais de uma aba configurada (ex.: `Clientes` e `Parceiros`), o popup mostra **Aba de destino para novas extrações** e a
+prévia ganha a coluna **Aba**, para escolher ou trocar a aba de cada pessoa antes de enviar. A primeira aba da lista é a padrão.
+
+- Cada aba é lida separadamente: as colunas podem estar em ordens diferentes, mas precisam ter os mesmos nomes.
+- A verificação de duplicados é feita **na aba de destino** de cada registro.
+- Todas as abas são conferidas antes de gravar qualquer linha. Se o envio falhar no meio (ex.: queda de conexão), as abas já
+  gravadas saem da fila e só os registros pendentes continuam nela.
 
 ## Autenticação e segurança
 
