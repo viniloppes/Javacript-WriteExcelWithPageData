@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configurações · Página → Google Sheets</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Configurações</h1>
+
+      <section>
+        <h2>1. Autenticação Google (OAuth 2.0)</h2>
+        <label>
+          OAuth Client ID
+          <input id="client-id" type="text" autocomplete="off" spellcheck="false" placeholder="000000000000-xxxx.apps.googleusercontent.com" />
+        </label>
+        <p class="hint">
+          Crie um ID do cliente OAuth do tipo <em>Aplicativo da Web</em> no Google Cloud Console e cadastre este URI de redirecionamento
+          autorizado:
+        </p>
+        <div class="copy-row">
+          <code id="redirect-uri"></code>
+          <button type="button" id="copy-redirect">Copiar</button>
+        </div>
+        <p class="hint">
+          Permissão solicitada: <code>https://www.googleapis.com/auth/spreadsheets</code> (somente planilhas). O token de acesso fica
+          apenas na memória do navegador e nunca é salvo em disco.
+        </p>
+        <button type="button" id="sign-out">Sair da conta Google</button>
+      </section>
+
+      <section>
+        <h2>2. Planilha de destino</h2>
+        <label>
+          URL ou ID da planilha
+          <input id="spreadsheet" type="text" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…/edit" />
+        </label>
+        <div class="row">
+          <label>
+            Nome da aba
+            <input id="sheet-name" type="text" placeholder="Sheet1" />
+          </label>
+          <label>
+            Linha do cabeçalho
+            <input id="header-row" type="number" min="1" step="1" />
+          </label>
+        </div>
+        <button type="button" id="load-headers">Carregar colunas da planilha</button>
+        <p class="hint">Lê os cabeçalhos da aba e cria um campo para cada coluna, mantendo os mapeamentos já existentes.</p>
+      </section>
+
+      <section>
+        <h2>3. Mapeamento de campos</h2>
+        <p class="hint">
+          Para cada coluna da planilha, escolha de onde vem o valor. Em "Seletor CSS", informe um seletor por linha: o primeiro que encontrar
+          texto é usado. Deixe "Atributo" vazio para ler o texto do elemento (ou use, por exemplo, <code>href</code>, <code>content</code>).
+          Colunas da planilha que não estiverem mapeadas não são alteradas.
+        </p>
+        <table id="fields">
+          <thead>
+            <tr>
+              <th>Coluna na planilha</th>
+              <th>Origem</th>
+              <th>Seletor CSS / valor</th>
+              <th>Atributo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="actions">
+          <button type="button" id="add-field">Adicionar campo</button>
+          <button type="button" id="apply-linkedin">Aplicar modelo LinkedIn</button>
+        </div>
+
+        <label>
+          Identificador único (evita duplicações)
+          <select id="unique-key"></select>
+        </label>
+        <p class="hint">
+          Antes de enviar, a extensão lê esta coluna na planilha e ignora registros cujo valor já existe. URLs são comparadas sem protocolo,
+          "www.", parâmetros e barra final.
+        </p>
+      </section>
+
+      <div class="actions sticky">
+        <button type="button" id="save" class="primary">Salvar</button>
+        <span id="status" role="status"></span>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

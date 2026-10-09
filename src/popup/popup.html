@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Página → Google Sheets</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Página → Google Sheets</h1>
+      <button type="button" id="open-options" class="link">Configurações</button>
+    </header>
+
+    <p id="target" class="muted"></p>
+    <div id="problems" class="notice warning" hidden></div>
+
+    <div class="actions">
+      <button type="button" id="extract" class="primary">Extrair desta página</button>
+      <button type="button" id="clear" class="secondary">Limpar fila</button>
+    </div>
+
+    <div id="message" class="notice" hidden></div>
+
+    <section>
+      <h2>Prévia <span id="count" class="muted"></span></h2>
+      <p id="empty" class="muted">Nenhum registro extraído ainda. Abra a página desejada e clique em "Extrair desta página".</p>
+      <div class="table-wrap">
+        <table id="preview" hidden>
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div id="confirm" class="confirm" hidden>
+      <p id="confirm-text"></p>
+      <div class="actions">
+        <button type="button" id="confirm-send" class="primary">Confirmar envio</button>
+        <button type="button" id="confirm-cancel" class="secondary">Cancelar</button>
+      </div>
+    </div>
+
+    <footer>
+      <button type="button" id="append" class="primary">Adicionar à planilha</button>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

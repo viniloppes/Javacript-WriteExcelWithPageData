@@ -1,0 +1,13 @@
+{
+  "name": "pagina-para-google-sheets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Extensão do Chrome que lê campos do DOM e adiciona registros a uma planilha do Google Sheets.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
